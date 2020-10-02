@@ -1,0 +1,33 @@
+* { 
+    margin:0; padding:0; 
+}
+
+html, body { 
+    width:100%; height:100%; 
+}
+
+div#score_nest {
+    position: fixed;
+    top: 10vh;
+    left: 40vw;
+    width: 20vw;
+    height: 10vh;
+    background: #ffffff96;
+    color: white;
+    text-align: center;
+    padding: 10px;
+}
+
+p#score {
+    font-size: 3rem;
+}
+
+p#timer {
+    text-align: initial;
+}
+
+canvas#gc { 
+    display:block; 
+    height: 100%;
+    width: 100%;
+} /* To remove the scrollbars */
