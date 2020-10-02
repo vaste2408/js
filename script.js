@@ -18,7 +18,7 @@ const _apple = { // apple structure
     bonus: 1,
     color: 'red',
     lifetime: 10
-}
+} //
 
 let speed = _speed; //game speed
 let width = height = 0; //game field dimensions
