@@ -12,6 +12,17 @@ body {
     justify-content: center;
 }
 
+#help {
+    margin-top: 1vh;
+    background: #ffffffc9;
+    border-radius: 10px;
+    color: black;
+    text-align: left;
+    padding: 10px;
+    position: absolute;
+    left: 1vw;
+}
+
 #score_nest {
     margin-top: 1vh;
     min-width: 20vw;
@@ -29,6 +40,7 @@ body {
 
 #timer {
     text-align: initial;
+    margin-top: 1rem;
 }
 
 canvas#gc { 
@@ -36,4 +48,16 @@ canvas#gc {
     height: 100%;
     width: 100%;
     z-index: -1;
+}
+
+#restart{
+    border: none;
+    border-radius: 10px;
+    padding: 10px;
+    background: #ffffffc9;
+    color: black;
+    text-align: center;
+    position: absolute;
+    right: 1vw;
+    margin-top: 1vh;
 }

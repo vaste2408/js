@@ -3,12 +3,20 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Title</title>
+        <title>Just one another snake</title>
         <link rel="stylesheet" href="style.css" />
         <script src="script.js" defer></script>
     </head>
     <body>
         <canvas id='gc' ></canvas>
+        <div id='help'>
+            <table>
+                <tr><td>&larr;</td><td> - Move left</td></tr>
+                <tr><td>&rarr;</td><td> - Move right</td></tr>
+                <tr><td>&uarr;</td><td> - Move up</td></tr>
+                <tr><td>&darr;</td><td> - Move down</td></tr>
+            </table>
+        </div>
         <div id='score_nest'>
             <div>
                 YOUR SCORE:
@@ -16,5 +24,6 @@
             </div>
             <div id='timer'>Time passed: 0</div>
         </div>
+        <button id='restart'>RESTART</button>
     </body>
 </html>
