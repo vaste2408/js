@@ -3,31 +3,37 @@
 }
 
 html, body { 
-    width:100%; height:100%; 
+    width:100%; 
+    height:100%; 
 }
 
-div#score_nest {
-    position: fixed;
-    top: 10vh;
-    left: 40vw;
-    width: 20vw;
+body {
+    display: flex;
+    justify-content: center;
+}
+
+#score_nest {
+    margin-top: 1vh;
+    min-width: 20vw;
     height: 10vh;
-    background: #ffffff96;
-    color: white;
+    background: #ffffffc9;
+    border-radius: 10px;
+    color: black;
     text-align: center;
     padding: 10px;
 }
 
-p#score {
-    font-size: 3rem;
+#score {
+    font-size: 2rem;
 }
 
-p#timer {
+#timer {
     text-align: initial;
 }
 
 canvas#gc { 
-    display:block; 
+    position: fixed;
     height: 100%;
     width: 100%;
-} /* To remove the scrollbars */
+    z-index: -1;
+}
