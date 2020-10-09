@@ -4,6 +4,8 @@ const score = document.getElementById('score');
 const timer = document.getElementById('timer');
 const _restart = document.getElementById('restart');
 const _help = document.getElementById('help');
+const _abils_nest = document.getElementById('abils');
+const _notif_nest = document.getElementById('notif');
 const _generateColor = () => '#'+(0x1000000+(Math.random())*0xffffff).toString(16).substr(1,6);
 const _size = 25; //base size of pixel (scale)
 const _08size = Math.floor(_size*0.8); //to make borders of pixels
@@ -12,6 +14,28 @@ const _tail = 5; //base snake length
 const _speed = 15; // base moves per second
 const _maxApples = 10;
 const _10secs = 10;
+const _traceName = 'trace', _bigHeadName = 'bigHead', _invulName = 'invulnerable';
+const _abilities = {
+    'trace' : { //trace ray from head to border
+        name: _traceName,
+        color: 'red',
+        lifetime: 30,
+        descr: 'What happens when snake obtains laser tag? Thats.'
+    } 
+    ,'bigHead' : { //collect in radius
+        name: _bigHeadName,
+        radius: 2,
+        lifetime: 30,
+        descr: 'Looks like U\'ve got an vortex inside your mouth...'
+    } 
+    ,'invulnerable' : {
+        name: _invulName,
+        active: 1,
+        lifetime: 30,
+        descr: 'No pain - no gain! Well, its opposite, thought.'
+    }
+}
+const _abilKeys = [_traceName, _bigHeadName, _invulName]; // keys of abilities
 
 const _apple = { // apple structure
     x: 0,
@@ -19,7 +43,8 @@ const _apple = { // apple structure
     score: 1,
     bonus: 1,
     color: 'red',
-    lifetime: 10
+    lifetime: 10,
+    grantsAbil: -1
 }
 
 const _snake = { // snake structure
@@ -28,8 +53,11 @@ const _snake = { // snake structure
     color: 'peru', //snake color
     trail: [], //snake items
     tail: _tail, //snake length
-    move: false
+    move: false,
+    direction: '',
+    abils: []
 }
+
 let snake;
 
 let speed = _speed; //game speed
@@ -52,7 +80,7 @@ let _timer = false;
 let _apple_gen = false;
 let _speedCheck = false;
 
-do_timer = () => {
+const _do_timer = () => {
     if (++_time10 >= _10secs){
         _time10 = 0;
         _fieldColorR = _fieldColorL;
@@ -62,10 +90,22 @@ do_timer = () => {
     _apples.map(a => {
         a.lifetime--;
     });
-    destroy_apples();
+    _destroy_apples();
 }
 
-draw_field = () => {
+const _clear_notif = (_msg) => {
+    _msg.remove();
+}
+
+const _create_notify = (msg) => {
+    let _msg = document.createElement('div');
+    _msg.classList.add('nest');
+    _msg.innerText = msg;
+    _notif_nest.appendChild(_msg);
+    setTimeout(_clear_notif, 5000, _msg);
+}
+
+const _draw_field = () => {
     let grd = ctx.createLinearGradient(0, 0, Math.floor(width), 0);
     grd.addColorStop(0, _fieldColorL);
     grd.addColorStop(1, _fieldColorR);
@@ -73,7 +113,61 @@ draw_field = () => {
     ctx.fillRect(0,0,Math.floor(width),Math.floor(height));
 }
 
-move_snake = () => {
+const _has_ability = (snake, ability) => {
+    return (snake.abils.filter(a => a == _abilities[ability]).length != 0)
+}
+
+const _grant_ability = (snake, ability_name) => {
+    if (!_has_ability(snake, ability_name))
+        snake.abils.push(_abilities[ability_name]);
+    else{ //has ability - extend lifetime
+        snake.abils.map(ab => {
+            if (ab.name == ability_name)
+                ab.lifetime += _abilities[ability_name].lifetime;
+        });
+    }
+    _create_notify(_abilities[ability_name].descr);
+}
+
+const _deny_ability = (snake, ability) => {
+    if (_has_ability(snake, ability)){
+        let index = array.indexOf(_abilities[ability]);
+        snake.abils.splice(index, 1);
+    }
+}
+
+const _draw_abilities = (snake) => {
+    _abils_nest.innerHTML = 'Your abilities:';
+    snake.abils.map(abil => {
+        let _ab = document.createElement('p');
+        _ab.innerText = abil.name + ': ' + abil.lifetime + ' secs';
+        _abils_nest.appendChild(_ab);
+    });
+}
+
+const _draw_trace = (snake) =>{
+    let _x = (snake.trail[snake.trail.length - 1].x + 0.35) * gs;
+    let _y = (snake.trail[snake.trail.length - 1].y + 0.35) * gs;
+    ctx.beginPath();
+    ctx.moveTo(_x, _y);
+    switch (snake.direction){
+        case 'up':
+            ctx.lineTo(_x, 0);
+            break;
+        case 'down':
+            ctx.lineTo(_x, height);
+            break;
+        case 'left':
+            ctx.lineTo(0, _y);
+            break;
+        case 'right':
+            ctx.lineTo(width, _y);
+            break;
+    }
+    ctx.stroke();
+}
+
+const _move_snake = () => {
     snake.x += xv; //movement
     snake.y += yv;
     if (snake.x < 0){ //border crossing
@@ -90,8 +184,8 @@ move_snake = () => {
     }
 }
 
-draw_snake = () => {
-    move_snake();
+const _draw_snake = () => {
+    _move_snake();
 
     ctx.fillStyle = snake.color;
     ctx.strokeStyle = 'black';
@@ -106,34 +200,52 @@ draw_snake = () => {
         }
         ctx.fill();
         ctx.stroke();
-            
-        if (snake.trail[i].x == snake.x && snake.trail[i].y == snake.y && snake.move){ //step on tail
-            snake.tail = _tail;
-            _score = _time = 0;
-            set_score();
-        }
+        
+        if (!_has_ability(snake, _invulName))
+            if (snake.trail[i].x == snake.x && snake.trail[i].y == snake.y && snake.move){ //step on tail
+                snake.tail = _tail;
+                _score = _time = 0;
+                _set_score();
+                _create_notify('Ouch! Dont do THAT!');
+            }
     }
     snake.trail.push({x:snake.x, y:snake.y});
     while (snake.trail.length > snake.tail){
         snake.trail.shift();
     }
-    eat();
+    _eat();
+    if (_has_ability(snake, _traceName)){
+        _draw_trace(snake);
+    }
+    _draw_abilities(snake);
 }
 
-eat = () => {
+const _is_in_area = (a, b, x, y, r) => {
+    let dist_points = (a - x) * (a - x) + (b - y) * (b - y);
+    r *= r;
+    if (dist_points < r) {
+        return true;
+    }
+    return false;
+}
+
+const _eat = () => {  //step on apple
     _apples.map ((a, i) => {
-        if (snake.x == a.x && snake.y == a.y){ //step on apple
+        if (_is_in_area(a.x, a.y, snake.x, snake.y, _abilities[_bigHeadName].radius) && _has_ability(snake, _bigHeadName)
+            || (snake.x == a.x && snake.y == a.y)){
             snake.color = a.color;
             snake.tail += a.bonus;
             _score += a.score;
             _maxScore = _maxScore < _score ? _score : _maxScore;
             _apples.splice(i,1);
-            set_score();
+            _set_score();
+            if (a.grantsAbil < _abilKeys.length)
+                _grant_ability(snake, _abilKeys[a.grantsAbil]);
         }
     });
 }
 
-destroy_apples = () => { //rotten apples disappears
+const _destroy_apples = () => { //rotten apples disappears
     _apples.map ((a,i) => {
         if (a.lifetime <= 0){
             _apples.splice(i, 1);
@@ -141,7 +253,7 @@ destroy_apples = () => { //rotten apples disappears
     });
 }
 
-generate_apple = () => {
+const _generate_apple = () => {
     if (_apples.length > _maxApples - 1)
         return;
     let ap = {..._apple};
@@ -149,14 +261,21 @@ generate_apple = () => {
     ap.y = Math.floor(Math.random()*tcy);
     ap.score = ap.bonus = Math.floor(Math.random() * Math.floor(2)) + 1;
     ap.color = _generateColor();
+    ap.grantsAbil = Math.floor(Math.random() * 31);
     ap.lifetime = Math.ceil(ap.lifetime / ap.bonus);
     if (_apples.filter(a => a.x == ap.x && a.y == ap.y).length > 0)
         return;
-    draw_apple(ap);
+    _draw_apple(ap);
     _apples.push(ap);
 }
 
-draw_apple = (a) => {
+const _generate_snake = () => {
+    let snake = {..._snake};
+    snake.x = Math.floor(width / gs / 2); snake.y = Math.floor(height / gs / 2);
+    return snake;
+}
+
+const _draw_apple = (a) => {
     ctx.beginPath();
     ctx.fillStyle = a.color;
     ctx.arc((a.x + 0.35) * gs, (a.y + 0.35) * gs, gs / 2 * (1 + 0.2 * (a.bonus - 1)), 0, 2 * Math.PI, true);
@@ -165,36 +284,36 @@ draw_apple = (a) => {
     ctx.stroke();
 }
 
-draw_apples = () => {
+const _draw_apples = () => {
     _apples.map (a => {
-        draw_apple(a);
+        _draw_apple(a);
     });
 }
 
-start_game = () => {
+const _start_game = () => {
     clearInterval(_gameStart);
-    _gameStart = setInterval(game, 1000/speed);
+    _gameStart = setInterval(_game, 1000/speed);
 }
 
-speed_check = () => {
+const _speed_check = () => {
     _score == 0 ? speed = _speed : speed = speed;
     speed = _speed + (_score / 5);
-    start_game();
+    _start_game();
 }
 
-set_score = () => {
+const _set_score = () => {
     score.innerText = _score;
     score.innerText += ' (max: ' + _maxScore + ')';
 }
 
-game = () => {
-    draw_field();
+const _game = () => {
+    _draw_field();
 
-    speed_check();
+    _speed_check();
 
-    draw_snake();
+    _draw_snake();
 
-    draw_apples();
+    _draw_apples();
 }
 
 document.addEventListener ('DOMContentLoaded', () => {
@@ -220,8 +339,7 @@ document.addEventListener ('DOMContentLoaded', () => {
         height = window.getComputedStyle(canv,null).height.replace('px','');
         width = window.getComputedStyle(canv,null).width.replace('px','');
         tcx = Math.floor(width / gs); tcy = Math.floor(height / gs);
-        snake = {..._snake};
-        snake.x = Math.floor(width / gs / 2); snake.y = Math.floor(height / gs / 2);
+        snake = _generate_snake();
         document.addEventListener('keydown', key => {
             switch (key.keyCode){
                 case 32:
@@ -230,28 +348,32 @@ document.addEventListener ('DOMContentLoaded', () => {
                 case 37: case 38: case 39: case 40:
                     if (key.keyCode == 37){
                         xv = -1 * _v; yv = 0;
+                        snake.direction = 'left';
                     }
                     if (key.keyCode == 38){
                         xv = 0; yv = -1 * _v;
+                        snake.direction = 'up';
                     }
                     if (key.keyCode == 39){
                         xv = 1 * _v; yv = 0;
+                        snake.direction = 'right';
                     }
                     if (key.keyCode == 40){
                         xv = 0; yv = 1 * _v;
+                        snake.direction = 'down';
                     }
                     snake.move = true;
                     if (!_timer){
-                        _timer = setInterval(do_timer, 1000);
+                        _timer = setInterval(_do_timer, 1000);
                     } 
                     if (!_apple_gen){
-                        _apple_gen = setInterval(generate_apple, 1000);
+                        _apple_gen = setInterval(_generate_apple, 1000);
                     }
                     break;
             }
         });
-        start_game();
-        set_score();
-        generate_apple();
+        _generate_apple();
+        _start_game();
+        _set_score();
     }
 });

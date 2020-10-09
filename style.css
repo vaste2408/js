@@ -12,13 +12,24 @@ body {
     justify-content: center;
 }
 
-#help {
-    margin-top: 1vh;
+.nest {
     background: #ffffffc9;
     border-radius: 10px;
     color: black;
-    text-align: left;
     padding: 10px;
+}
+
+#abils {
+    margin-top: 1vh;
+    text-align: left;
+    position: absolute;
+    left: 1vw;
+    top: 120px;
+}
+
+#help {
+    margin-top: 1vh;
+    text-align: left;
     position: absolute;
     left: 1vw;
 }
@@ -27,11 +38,7 @@ body {
     margin-top: 1vh;
     min-width: 20vw;
     height: 10vh;
-    background: #ffffffc9;
-    border-radius: 10px;
-    color: black;
     text-align: center;
-    padding: 10px;
 }
 
 #score {
@@ -50,7 +57,7 @@ canvas#gc {
     z-index: -1;
 }
 
-#restart{
+#restart {
     border: none;
     border-radius: 10px;
     padding: 10px;
@@ -60,4 +67,11 @@ canvas#gc {
     position: absolute;
     right: 1vw;
     margin-top: 1vh;
+}
+
+#notif {
+    text-align: center;
+    position: fixed;
+    right: 1vw;
+    bottom: 1vh;
 }
