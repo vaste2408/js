@@ -6,6 +6,7 @@ const _restart = document.getElementById('restart');
 const _help = document.getElementById('help');
 const _abils_nest = document.getElementById('abils');
 const _notif_nest = document.getElementById('notif');
+const _fps_nest = document.getElementById('fps');
 const _generateColor = () => '#'+(0x1000000+(Math.random())*0xffffff).toString(16).substr(1,6);
 const _size = 25; //base size of pixel (scale)
 const _08size = Math.floor(_size*0.8); //to make borders of pixels
@@ -14,28 +15,59 @@ const _tail = 5; //base snake length
 const _speed = 15; // base moves per second
 const _maxApples = 10;
 const _10secs = 10;
-const _traceName = 'trace', _bigHeadName = 'bigHead', _invulName = 'invulnerable';
+const _nextLevelScore = 20;
+const _traceName = 'trace', _bigHeadName = 'bigHead', _invulName = 'invulnerable', _sapierName = 'sapier';
+const _abilKeys = [_traceName, _bigHeadName, _invulName, _sapierName]; // keys of abilities
 const _abilities = {
     'trace' : { //trace ray from head to border
         name: _traceName,
         color: 'red',
         lifetime: 30,
-        descr: 'What happens when snake obtains laser tag? Thats.'
+        descr: 'What happens when snake obtains laser tag? Thats.',
+        pseudo: 'Laser tag!'
     } 
     ,'bigHead' : { //collect in radius
         name: _bigHeadName,
         radius: 2,
         lifetime: 30,
-        descr: 'Looks like U\'ve got an vortex inside your mouth...'
+        descr: 'Looks like U\'ve got an vortex inside your mouth...',
+        pseudo: 'Vortex'
     } 
     ,'invulnerable' : {
         name: _invulName,
         active: 1,
         lifetime: 30,
-        descr: 'No pain - no gain! Well, its opposite, thought.'
+        descr: 'No pain - no gain! Well, its opposite, thought.',
+        pseudo: 'Die hard'
+    }
+    ,'sapier' : {
+        name: _sapierName,
+        color: 'red',
+        lifetime: 30,
+        descr: 'One old metal detector for you. Enjoy.',
+        pseudo: 'I see!'
     }
 }
-const _abilKeys = [_traceName, _bigHeadName, _invulName]; // keys of abilities
+
+const _oddDictionary = {
+    good : ['Yuppee!', 'That was nice', 'A good one! Thanx!', 'Something finally usefull'],
+    bad: ['Ouch! Don\'t do THAT!', 'That was rough' , 'If I was U I would never do that', 'What? Again? Nooo', 'God, PLEASE, no!'],
+    afk: ['Im outta sleep some, let me know if U wanna go']
+}
+const _events = {
+    stepOnTail : 'stepOnTail',
+    eatApple : 'eatApple',
+    frustrated : 'frustrated',
+    restart : 'restart',
+    score : 'score',
+    time : 'time',
+    gotAbility : 'gotAbility',
+    lostAbility : 'lostAbility'
+}
+
+const _random_exclamation = (tag = 'afk') => {
+    return _oddDictionary[tag][Math.floor(Math.random() * _oddDictionary[tag].length)];
+}
 
 const _apple = { // apple structure
     x: 0,
@@ -44,7 +76,8 @@ const _apple = { // apple structure
     bonus: 1,
     color: 'red',
     lifetime: 10,
-    grantsAbil: -1
+    grantsAbil: -1,
+    bomb: false
 }
 
 const _snake = { // snake structure
@@ -64,7 +97,7 @@ let speed = _speed; //game speed
 let width = height = 0; //game field dimensions
 let _fieldColorL = _generateColor(); //field background 
 let _fieldColorR = _generateColor();
-let gs =_size; let tcx = tcy = 0; //scale and borders
+let gs =_size; let _totalCellX = _totalCellY = 0; //scale and borders
 let xv = yv = 0; 
 
 let _score = 0; //apples ate till collision
@@ -79,6 +112,12 @@ let _gameStart = false;
 let _timer = false;
 let _apple_gen = false;
 let _speedCheck = false;
+
+const _is_in_area = (a, b, x, y, r) => { //util function to detect if point is in circle area or not
+    let dist_points = (a - x) * (a - x) + (b - y) * (b - y);
+    r *= r;
+    return dist_points < r;
+}
 
 const _do_timer = () => {
     if (++_time10 >= _10secs){
@@ -126,13 +165,21 @@ const _grant_ability = (snake, ability_name) => {
                 ab.lifetime += _abilities[ability_name].lifetime;
         });
     }
+    _draw_abilities(snake);
     _create_notify(_abilities[ability_name].descr);
+}
+
+const _grant_all = () => {
+    _abilKeys.map(key => {
+        _grant_ability(snake, key);
+    })
 }
 
 const _deny_ability = (snake, ability) => {
     if (_has_ability(snake, ability)){
-        let index = array.indexOf(_abilities[ability]);
+        let index = snake.abils.indexOf(_abilities[ability]);
         snake.abils.splice(index, 1);
+        _draw_abilities(snake);
     }
 }
 
@@ -140,7 +187,7 @@ const _draw_abilities = (snake) => {
     _abils_nest.innerHTML = 'Your abilities:';
     snake.abils.map(abil => {
         let _ab = document.createElement('p');
-        _ab.innerText = abil.name + ': ' + abil.lifetime + ' secs';
+        _ab.innerText = abil.pseudo + ': ' + abil.lifetime + ' secs';
         _abils_nest.appendChild(_ab);
     });
 }
@@ -171,15 +218,15 @@ const _move_snake = () => {
     snake.x += xv; //movement
     snake.y += yv;
     if (snake.x < 0){ //border crossing
-        snake.x = tcx - _v;
+        snake.x = _totalCellX - _v;
     }
-    if (snake.x > tcx - _v){
+    if (snake.x > _totalCellX - _v){
         snake.x = 0;
     }
     if (snake.y < 0){ //border crossing
-        snake.y = tcy - _v;
+        snake.y = _totalCellY - _v;
     }
-    if (snake.y > tcy - _v){
+    if (snake.y > _totalCellY - _v){
         snake.y = 0;
     }
 }
@@ -206,7 +253,7 @@ const _draw_snake = () => {
                 snake.tail = _tail;
                 _score = _time = 0;
                 _set_score();
-                _create_notify('Ouch! Dont do THAT!');
+                _create_notify(_random_exclamation('bad'));
             }
     }
     snake.trail.push({x:snake.x, y:snake.y});
@@ -217,37 +264,38 @@ const _draw_snake = () => {
     if (_has_ability(snake, _traceName)){
         _draw_trace(snake);
     }
-    _draw_abilities(snake);
-}
-
-const _is_in_area = (a, b, x, y, r) => {
-    let dist_points = (a - x) * (a - x) + (b - y) * (b - y);
-    r *= r;
-    if (dist_points < r) {
-        return true;
-    }
-    return false;
+    
 }
 
 const _eat = () => {  //step on apple
     _apples.map ((a, i) => {
         if (_is_in_area(a.x, a.y, snake.x, snake.y, _abilities[_bigHeadName].radius) && _has_ability(snake, _bigHeadName)
-            || (snake.x == a.x && snake.y == a.y)){
-            snake.color = a.color;
-            snake.tail += a.bonus;
-            _score += a.score;
-            _maxScore = _maxScore < _score ? _score : _maxScore;
+        || (snake.x == a.x && snake.y == a.y)){
             _apples.splice(i,1);
-            _set_score();
-            if (a.grantsAbil < _abilKeys.length)
-                _grant_ability(snake, _abilKeys[a.grantsAbil]);
+            if (a.bomb){
+                if (_has_ability(snake, _invulName)){
+                    _deny_ability(snake, _invulName);
+                }
+                else{
+                    _create_notify('BOOM!!!!');
+                    _init_game();
+                }
+            }else{
+                snake.color = a.color;
+                snake.tail += a.bonus;
+                _score += a.score;
+                _maxScore = _maxScore < _score ? _score : _maxScore;
+                _set_score();
+                if (a.grantsAbil > -1 && a.grantsAbil < _abilKeys.length)
+                    _grant_ability(snake, _abilKeys[a.grantsAbil]);
+            }
         }
     });
 }
 
 const _destroy_apples = () => { //rotten apples disappears
     _apples.map ((a,i) => {
-        if (a.lifetime <= 0){
+        if (a.lifetime <= 0) {
             _apples.splice(i, 1);
         }
     });
@@ -257,14 +305,25 @@ const _generate_apple = () => {
     if (_apples.length > _maxApples - 1)
         return;
     let ap = {..._apple};
-    ap.x = Math.floor(Math.random()*tcx);
-    ap.y = Math.floor(Math.random()*tcy);
-    ap.score = ap.bonus = Math.floor(Math.random() * Math.floor(2)) + 1;
-    ap.color = _generateColor();
-    ap.grantsAbil = Math.floor(Math.random() * 31);
-    ap.lifetime = Math.ceil(ap.lifetime / ap.bonus);
+    // is it bomb?
+    if (_score >= _nextLevelScore*2)
+        ap.bomb = (Math.floor(Math.random() * 11) > 9);
+    if (ap.bomb && _score >= _nextLevelScore*4){
+        //bombs are at 5-10 cells far from snake
+        ap.x = snake.x + Math.floor(Math.random()*(13 - (Math.floor(_score / 30) > 8 ? 8 : Math.floor(_score / 30)) + 5));
+        ap.y = snake.y + Math.floor(Math.random()*(13 - (Math.floor(_score / 30) > 8 ? 8 : Math.floor(_score / 30)) + 5));
+    }
+    else{
+        ap.x = Math.floor(Math.random()*_totalCellX);
+        ap.y = Math.floor(Math.random()*_totalCellY);
+    }
     if (_apples.filter(a => a.x == ap.x && a.y == ap.y).length > 0)
         return;
+    if (_score >= _nextLevelScore)
+        ap.grantsAbil = Math.floor(Math.random() * 31);
+    ap.score = ap.bonus = Math.floor(Math.random() * 2) + 1;
+    ap.color = _generateColor();
+    ap.lifetime = Math.ceil(ap.lifetime / ap.bonus);
     _draw_apple(ap);
     _apples.push(ap);
 }
@@ -272,14 +331,19 @@ const _generate_apple = () => {
 const _generate_snake = () => {
     let snake = {..._snake};
     snake.x = Math.floor(width / gs / 2); snake.y = Math.floor(height / gs / 2);
+    snake.abils = []; snake.trail = [];
     return snake;
 }
 
 const _draw_apple = (a) => {
     ctx.beginPath();
     ctx.fillStyle = a.color;
-    ctx.arc((a.x + 0.35) * gs, (a.y + 0.35) * gs, gs / 2 * (1 + 0.2 * (a.bonus - 1)), 0, 2 * Math.PI, true);
-    //ctx.rect((a.x + 0.35*(1-a.bonus)) * gs, (a.y + 0.35*(1-a.bonus)) * gs, _08size * a.bonus, _08size * a.bonus);
+    if (_has_ability(snake, _sapierName) && a.bomb){
+        ctx.fillStyle = 'red';
+        ctx.rect((a.x + 0.35*(1-a.bonus)) * gs, (a.y + 0.35*(1-a.bonus)) * gs, _08size * a.bonus, _08size * a.bonus);
+    }
+    else
+        ctx.arc((a.x + 0.35) * gs, (a.y + 0.35) * gs, gs / 2 * (1 + 0.2 * (a.bonus - 1)), 0, 2 * Math.PI, true);
     ctx.fill();
     ctx.stroke();
 }
@@ -316,9 +380,45 @@ const _game = () => {
     _draw_apples();
 }
 
+const _init_game = () => {
+    _create_notify('Hello there! Lets have some fun swallowing thouse shiny little apples!');
+    xv = yv = _time = _score = _time10 = 0; speed = _speed;
+    clearInterval(_timer); clearInterval(_apple_gen); clearInterval(_gameStart);
+    _timer = _apple_gen = _gameStart = false;
+    _apples = [];
+    timer.innerText = 'Time passed: ' + (_time);
+    _abils_nest.innerText = 'Your abilities: ';
+    height = window.getComputedStyle(canv,null).height.replace('px','');
+    width = window.getComputedStyle(canv,null).width.replace('px','');
+    _totalCellX = Math.floor(width / gs); _totalCellY = Math.floor(height / gs);
+    snake = _generate_snake();
+
+    _generate_apple();
+    _start_game();
+    _set_score();
+}
+
+const times = [];
+let fps;
+
+const refreshLoop = () => {
+  window.requestAnimationFrame(() => {
+    const now = performance.now();
+    while (times.length > 0 && times[0] <= now - 1000) {
+      times.shift();
+    }
+    times.push(now);
+    fps = times.length;
+    _fps_nest.innerText = fps;
+    refreshLoop();
+  });
+}
+
+refreshLoop();
+
 document.addEventListener ('DOMContentLoaded', () => {
     _restart.addEventListener('click', () => {
-        start();
+        _init_game();
     });
 
     window.addEventListener('resize', resizeCanvas, false);
@@ -331,19 +431,11 @@ document.addEventListener ('DOMContentLoaded', () => {
     resizeCanvas();
 
     function start() {
-        xv = yv = _maxScore = _time = _score = _time10 = 0; speed = _speed;
-        clearInterval(_timer); clearInterval(_apple_gen); clearInterval(_gameStart);
-        _timer = _apple_gen = _gameStart = false;
-        _apples = [];
-        timer.innerText = 'Time passed: ' + (_time);
-        height = window.getComputedStyle(canv,null).height.replace('px','');
-        width = window.getComputedStyle(canv,null).width.replace('px','');
-        tcx = Math.floor(width / gs); tcy = Math.floor(height / gs);
-        snake = _generate_snake();
+        _init_game();
         document.addEventListener('keydown', key => {
             switch (key.keyCode){
                 case 32:
-                    start();
+                    _init_game();
                     break;
                 case 37: case 38: case 39: case 40:
                     if (key.keyCode == 37){
@@ -372,8 +464,5 @@ document.addEventListener ('DOMContentLoaded', () => {
                     break;
             }
         });
-        _generate_apple();
-        _start_game();
-        _set_score();
     }
 });
